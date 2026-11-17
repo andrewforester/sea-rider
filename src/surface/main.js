@@ -55,6 +55,8 @@ function fail(msg) {
 }
 function log(msg) {
   console.log(msg);
+  // the dev server (server.mjs) collects logs; static hosting has no such endpoint
+  if (!/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) return;
   try { fetch('/__log', { method: 'POST', body: String(msg) }).catch(() => {}); } catch (e) { /* offline */ }
 }
 
