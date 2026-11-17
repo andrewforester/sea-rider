@@ -447,13 +447,17 @@ async function main() {
 
   function resize() {
     const fw = Number(qs.get('w')) || 0, fh = Number(qs.get('h')) || 0;
+    // a canvas with no layout size yet (hidden tab, page still laying out): render nothing, otherwise
+    // the one-time spectrum / sky LUT passes would be submitted with invalid 1x1 targets and lost
+    if (!(fw && fh) && (canvas.clientWidth < 2 || canvas.clientHeight < 2)) return false;
     // render at most ~2.3 MP (the browser scales up to the window): keeps retina screens fast
     let dpr = window.devicePixelRatio || 1;
     const px = canvas.clientWidth * canvas.clientHeight * dpr * dpr;
     if (px > 2.3e6) dpr *= Math.sqrt(2.3e6 / px);
-    const w = fw || Math.max(1, Math.round(canvas.clientWidth * dpr));
-    const h = fh || Math.max(1, Math.round(canvas.clientHeight * dpr));
-    if (w === W && h === H) return;
+    // at least 256 px: the 8-level bloom chain needs it (the browser scales a tiny canvas)
+    const w = fw || Math.max(256, Math.round(canvas.clientWidth * dpr));
+    const h = fh || Math.max(256, Math.round(canvas.clientHeight * dpr));
+    if (w === W && h === H) return true;
     W = w; H = h;
     canvas.width = W; canvas.height = H;
     for (const t of [colorMS, depthMS, hdrTex, bloomTex]) t && t.destroy();
@@ -487,6 +491,7 @@ async function main() {
       upPasses.push({ colorAttachments: [{ view: bv[m - 1], loadOp: 'load', storeOp: 'store' }] });
     }
     bgComp = bg(compPipe, [hdrView, bv[0], linSamp, { buffer: compUBO }]);
+    return true;
   }
 
   // --------------------------------------------------------------------------------------
@@ -824,7 +829,7 @@ async function main() {
   function frame(now) {
     if (shooting) return;  // paused while a screenshot is read back
     requestAnimationFrame(frame);
-    resize();
+    if (!resize()) return;
     let dt = Math.min(0.1, (now - last) / 1000);
     last = now;
     fpsAcc += dt; fpsN++; fpsT += dt;
