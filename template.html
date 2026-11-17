@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Эгейский берег — гидроцикл и подводная охота</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #04121a; overflow: hidden; font: 14px/1.4 system-ui, sans-serif; color: #eef6f8; }
+  #game { position: fixed; inset: 0; cursor: crosshair; }
+  #game canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #cu { visibility: hidden; }
+  body[data-mode="under"] #hud { display: none; }
+  body[data-mode="under"] #cu { visibility: visible; }
+  body[data-mode="under"] #cs { visibility: hidden; }
+  #hud { position: fixed; left: 12px; top: 10px; font: 12px/1.45 ui-monospace, Consolas, monospace; opacity: .75;
+         text-shadow: 0 1px 2px #000a; pointer-events: none; }
+  #hint { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); padding: 8px 16px; border-radius: 10px;
+          background: #04121a99; backdrop-filter: blur(6px); white-space: nowrap; pointer-events: none; }
+  #hint b { font-size: 20px; }
+  #msg { position: fixed; left: 50%; top: 22%; transform: translateX(-50%); font-size: 20px; font-weight: 700;
+         text-shadow: 0 2px 8px #000c; transition: opacity .3s; pointer-events: none; text-align: center; }
+  #count { position: fixed; right: 18px; top: 14px; padding: 6px 14px; border-radius: 20px; font-size: 22px; font-weight: 800;
+           color: #ffe08a; background: #04121aa0; backdrop-filter: blur(6px); text-shadow: 0 0 10px #ffb300aa; pointer-events: none; }
+  #count.pop { animation: pop .6s ease-out; }
+  @keyframes pop { 0% { transform: scale(1.6); color: #fff; } 100% { transform: scale(1); } }
+  #fade { position: fixed; inset: 0; background: radial-gradient(#bfefff, #2a8db0); opacity: 0; transition: opacity .3s; pointer-events: none; }
+  #fade.on { opacity: 1; }
+  #panel { position: fixed; right: 12px; top: 10px; width: 300px; padding: 10px 12px; border-radius: 8px;
+           background: #0b0f14c8; backdrop-filter: blur(6px); font: 12px/1.3 system-ui, sans-serif; }
+  #panel.hidden { display: none; }
+  #panel label { display: grid; grid-template-columns: 1fr 110px 40px; gap: 6px; align-items: center; margin: 3px 0; }
+  #panel input { width: 110px; }
+  #panel output { text-align: right; opacity: .8; }
+  #err { position: fixed; inset: 0; display: none; padding: 40px; color: #f88; font: 16px system-ui; white-space: pre-wrap; background: #000; }
+  /* underwater renderer's own elements (loading bar reused, stats line) */
+  #i { position: fixed; top: 30px; left: 12px; margin: 0; font: 12px/1.6 ui-monospace, monospace; pointer-events: none; }
+  #load { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); width: 260px; font-size: 12px; text-align: center;
+          opacity: .85; pointer-events: none; transition: opacity 1s; }
+  #p { height: 4px; border-radius: 4px; background: #0008; overflow: hidden; margin-bottom: 3px; }
+  #b { display: block; height: 100%; background: linear-gradient(90deg, #14a9c4, #9ff6ff); transform: scaleX(0); transform-origin: 0; }
+  #load.done { opacity: 0; }
+</style>
+</head>
+<body data-mode="surface">
+<div id="game"><canvas id="cs"></canvas><canvas id="cu"></canvas></div>
+<div id="hud"><div id="fps">запуск…</div><div class="help">клик — захват мыши · H — настройки моря</div></div>
+<div id="load"><div id="p"><i id="b"></i></div><span id="s">Подводный мир загружается…</span><span id="w" hidden></span></div>
+<div id="hint"></div>
+<div id="msg"></div>
+<div id="count">⭐ 0 / 0</div>
+<pre id="i"></pre>
+<div id="fade"></div>
+<div id="panel" class="hidden"></div>
+<div id="err"></div>
+<!--SURFACE-->
+<!--UNDERWATER-->
+</body>
+</html>

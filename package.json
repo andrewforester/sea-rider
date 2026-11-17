@@ -1,0 +1,8 @@
+{
+  "name": "sea-rider",
+  "private": true,
+  "type": "module",
+  "description": "Jet ski and treasure hunt on a Greek-style island, built from web-ocean and abyssal-garden (WebGPU, no engine)",
+  "scripts": { "build": "node build.mjs", "start": "node server.mjs 8090" },
+  "devDependencies": { "esbuild": "^0.25.0" }
+}
