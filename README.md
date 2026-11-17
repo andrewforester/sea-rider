@@ -1,29 +1,31 @@
 # Sea Rider
 
-Гидроцикл, остров в духе греческих островов и поиск сокровищ — над водой и под водой.
-WebGPU, без движка.
+Ride a jet ski around a Greek-style island, go ashore, swim, dive into an underwater world and hunt for treasure.
+WebGPU, no engine. The in-game interface is in Russian.
 
-**Играть:** https://andrewforester.github.io/sea-rider/ (нужен браузер с WebGPU: Chrome / Edge 113+, Safari 26+).
+**Play:** https://andrewforester.github.io/sea-rider/ (needs a browser with WebGPU: Chrome / Edge 113+, Safari 26+).
 
-## Управление
+## Controls
 
-- **WASD / стрелки** — газ и руль / ходьба / плавание, **мышь** — обзор (клик, чтобы захватить курсор)
-- **Shift** — быстрее, **Space** — прыжок
-- **F** — сесть на ближайший гидроцикл или спрыгнуть с него
-- Нырок и всплытие автоматические: посмотри вниз и плыви — нырнёшь; плыви вверх — вынырнешь. **Q** — нырнуть вручную.
+- **WASD / arrows** — throttle and steering / walking / swimming; **mouse** — look around (click to capture the cursor)
+- **Shift** — faster, **Space** — jump
+- **F** — get on the nearest jet ski, or jump off it
+- Diving and surfacing are automatic: look down and swim forward to dive; swim up to surface. **Q** dives manually.
 
-Собери все ⭐ — на пляжах, в деревне, на вершинах, на буйках в море и в подводном мире.
+Collect all the ⭐ — on the beaches, in the village, on the hill tops, on buoys at sea and in the underwater world.
 
-## Разработка
+## Development
 
 ```bash
 npm install
-npm run build   # собирает game.html
+npm run build   # builds game.html
 npm start       # http://localhost:8090
 ```
 
-## Благодарности
+Pushes to `main` are built and deployed to GitHub Pages by `.github/workflows/pages.yml`.
 
-Основано на двух проектах Maksymilian Dendura (MIT):
-- [web-ocean](https://github.com/Noniv/web-ocean) — FFT-океан (`LICENSE-web-ocean`)
-- [abyssal-garden](https://github.com/Noniv/abyssal-garden) — подводный мир (`LICENSE-abyssal-garden`)
+## Credits
+
+Built on two projects by Maksymilian Dendura (MIT):
+- [web-ocean](https://github.com/Noniv/web-ocean) — FFT ocean (`LICENSE-web-ocean`)
+- [abyssal-garden](https://github.com/Noniv/abyssal-garden) — underwater world (`LICENSE-abyssal-garden`)
