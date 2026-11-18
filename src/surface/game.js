@@ -40,7 +40,7 @@ export function createGame({ cam, terrainH, keys, ui, sfx, treasures, obstacles 
   let shore = 0, shoreT = 0;
   let lastCam = [cam.x, cam.y, cam.z];
 
-  const say = (m, t = 2.5) => { message = m; messageT = t; };
+  const say = (m, t = 2.5) => { message = m; messageT = t; }; // m is the Russian key, translated in hud()
   const water = () => -terrainH(me.x, me.z);
 
   function mouse(dx, dy) {
@@ -326,19 +326,19 @@ export function createGame({ cam, terrainH, keys, ui, sfx, treasures, obstacles 
   }
 
   function hud() {
+    const tr = window.tr, v = (ski.speed * 3.6).toFixed(0);
     let h;
     if (touch) {
-      if (mode === 'ski') h = `<b>${(ski.speed * 3.6).toFixed(0)}</b> км/ч · джойстик — газ и руль`;
-      else if (mode === 'swim') h = nearestSki() ? 'Жми <b>Сесть</b>' : 'Джойстик — плыть · смотри вниз и плыви — нырнёшь';
-      else if (mode === 'walk') h = nearestSki() ? 'Жми <b>Сесть</b>' : 'Джойстик — идти · справа — осмотреться';
-      else h = 'Веди пальцем — смотреть и плыть · два пальца — быстрее · плыви вверх — вынырнешь';
-      return { hint: h, message: messageT > 0 ? message : '', count: `⭐ ${found()} / ${total()}` };
-    }
-    if (mode === 'ski') h = `<b>${(ski.speed * 3.6).toFixed(0)}</b> км/ч &nbsp;·&nbsp; W газ · S тормоз · A/D руль · Shift турбо · мышь — камера · Пробел — спрыгнуть`;
-    else if (mode === 'swim') h = nearestSki() ? '<b>Пробел</b> — сесть на гидроцикл' : 'W — плыть · A/D — поворот · посмотри вниз и плыви — нырнёшь · к берегу — выйдешь на сушу';
-    else if (mode === 'walk') h = nearestSki() ? '<b>Пробел</b> — сесть на гидроцикл' : 'W — идти · A/D — поворот · Shift — бежать · Пробел — прыжок · заходи в воду — поплывёшь';
-    else h = 'WASD — плыть · мышь — куда плыть · Shift быстрее · плыви вверх к свету — вынырнешь';
-    return { hint: h, message: messageT > 0 ? message : '', count: `⭐ ${found()} / ${total()}` };
+      if (mode === 'ski') h = tr('<b>{v}</b> км/ч · джойстик — газ и руль', { v });
+      else if (mode === 'swim') h = nearestSki() ? tr('Жми <b>Сесть</b>') : tr('Джойстик — плыть · смотри вниз и плыви — нырнёшь');
+      else if (mode === 'walk') h = nearestSki() ? tr('Жми <b>Сесть</b>') : tr('Джойстик — идти · справа — осмотреться');
+      else h = tr('Веди пальцем — смотреть и плыть · два пальца — быстрее · плыви вверх — вынырнешь');
+    } else if (mode === 'ski') h = tr('<b>{v}</b> км/ч &nbsp;·&nbsp; W газ · S тормоз · A/D руль · Shift турбо · мышь — камера · Пробел — спрыгнуть', { v });
+    else if (mode === 'swim') h = nearestSki() ? tr('<b>Пробел</b> — сесть на гидроцикл') : tr('W — плыть · A/D — поворот · посмотри вниз и плыви — нырнёшь · к берегу — выйдешь на сушу');
+    else if (mode === 'walk') h = nearestSki() ? tr('<b>Пробел</b> — сесть на гидроцикл') : tr('W — идти · A/D — поворот · Shift — бежать · Пробел — прыжок · заходи в воду — поплывёшь');
+    else h = tr('WASD — плыть · мышь — куда плыть · Shift быстрее · плыви вверх к свету — вынырнешь');
+    // messages keep their Russian key, so a language switch shows at once
+    return { hint: h, message: messageT > 0 ? tr(message) : '', count: `⭐ ${found()} / ${total()}` };
   }
 
   return {

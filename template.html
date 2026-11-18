@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru">
+<html lang="uk">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -34,10 +34,17 @@
   #skimark .b { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 2px; }
   #skimark .t { padding: 3px 9px; border-radius: 12px; font: 700 15px system-ui, sans-serif; color: #fff;
                 background: #e0332bd0; box-shadow: 0 0 10px #0006; white-space: nowrap; }
-  #skimark .t::before { content: 'Гидроцикл · '; font-weight: 500; }
+  #skimark .t::before { content: attr(data-pre); font-weight: 500; }
   #skimark .a { width: 0; height: 0; border-top: 11px solid transparent; border-bottom: 11px solid transparent;
                 border-left: 20px solid #ff5a4d; filter: drop-shadow(0 0 3px #000a); }
   body[data-mode="under"] #skimark { display: none; }
+  /* language switch, top right under the treasure count; above the loading screen */
+  #lang { position: fixed; right: 18px; top: 62px; z-index: 6; display: flex; padding: 3px; border-radius: 16px;
+          background: #04121aa0; backdrop-filter: blur(6px); }
+  #lang button { border: 0; padding: 4px 10px; border-radius: 13px; font: 700 13px system-ui, sans-serif; color: #eef6f8cc;
+                 background: none; cursor: pointer; touch-action: manipulation; }
+  #lang button.on { background: #ffe08a; color: #3a2400; }
+  body[data-mode="under"] #lang { display: none; }
   #fade { position: fixed; inset: 0; background: radial-gradient(#bfefff, #2a8db0); opacity: 0; transition: opacity .3s; pointer-events: none; }
   #fade.on { opacity: 1; }
   #panel { position: fixed; right: 12px; top: 10px; width: 300px; padding: 10px 12px; border-radius: 8px;
@@ -93,37 +100,41 @@
   body.touch #hint b { font-size: 14px; }
   body.touch #count { font-size: 18px; top: 8px; right: 10px; }
   body.touch #msg { font-size: 17px; top: 18%; }
+  body.touch #lang { top: 50px; right: 10px; }
 </style>
 </head>
 <body data-mode="surface">
 <div id="game"><canvas id="cs"></canvas><canvas id="cu"></canvas></div>
-<div id="hud"><div id="fps">запуск…</div><div class="help">клик — захват мыши · H — настройки моря</div></div>
-<div id="load"><div class="ttl">Эгейский берег</div><div class="sub">гидроцикл и сокровища ⭐</div>
-  <div id="p"><i id="b"></i></div><div class="row"><span id="pc">0%</span><span id="s">Загрузка…</span></div><span id="w" hidden></span>
-  <div class="go">Остров готов — нажми любую клавишу или коснись экрана</div></div>
+<div id="hud"><div id="fps">запуск…</div><div class="help" data-i18n>клик — захват мыши · H — настройки моря · L — язык</div></div>
+<div id="load"><div class="ttl" data-i18n>Эгейский берег</div><div class="sub" data-i18n>гидроцикл и сокровища ⭐</div>
+  <div id="p"><i id="b"></i></div><div class="row"><span id="pc">0%</span><span id="s" data-i18n>Загрузка…</span></div><span id="w" hidden></span>
+  <div class="go" data-i18n>Остров готов — нажми любую клавишу или коснись экрана</div></div>
 <div id="touch"><div id="stickzone"></div><div id="look"></div><div id="joy"><div id="knob"></div></div>
   <button class="tb" id="bA"></button><button class="tb" id="bB"></button><button class="tb" id="bC"></button></div>
 <div id="hint"></div>
 <div id="msg"></div>
-<div id="skimark" style="display:none"><div class="b"><span class="t"></span><i class="a"></i></div></div>
+<div id="skimark" style="display:none"><div class="b"><span class="t" data-i18n="Гидроцикл · " data-i18n-attr="data-pre"></span><i class="a"></i></div></div>
 <div id="count">⭐ 0 / 0</div>
 <pre id="i"></pre>
 <div id="fade"></div>
 <div id="panel" class="hidden"></div>
+<div id="lang"></div>
 <div id="err"></div>
+<!--I18N-->
 <script>
 // Loading screen. The island takes the first 40% of the bar, the underwater world the rest. Once the island renders
 // it shows through a blur that clears as the rest loads; a key or a tap starts the game early.
 (() => {
   const $ = (id) => document.getElementById(id);
   const part = { surf: 0, uw: 0 };
-  let shown = 0, state = 'load'; // load -> mini (playing early) -> done
+  let shown = 0, state = 'load', said = ''; // load -> mini (playing early) -> done
+  window.onLang(() => { if (said) $('s').textContent = window.tr(said); });
   const blur = (t) => { if (state === 'load') $('game').style.filter = `blur(${(26 * Math.min(1, (1 - t) / 0.6)).toFixed(1)}px)`; };
   blur(0);
   window.loadProgress = (k, v, msg, ms = 600) => {
     part[k] = Math.max(part[k], v);
     const t = part.surf * 0.4 + part.uw * 0.6;
-    if (msg) $('s').textContent = msg;
+    if (msg) $('s').textContent = window.tr(said = msg);
     $('pc').textContent = Math.round(t * 100) + '%';
     const a = $('b').animate({ transform: [`scaleX(${shown})`, `scaleX(${t})`] }, { duration: ms, fill: 'forwards', easing: 'cubic-bezier(.3,.5,.5,1)' });
     shown = t;

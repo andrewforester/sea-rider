@@ -15,6 +15,7 @@ no engine and no runtime dependency: WebGPU, WGSL and Web Audio only.
 | ---------------------------- | -------------------------------------------------------------------------------------- |
 | `template.html`              | The page: canvases, HUD, loading screen, touch controls, CSS, the loading controller   |
 | `build.mjs`                  | Bundles both renderers into `template.html` and writes `game.html`                     |
+| `src/i18n.js`                | Interface language (Russian, Ukrainian): `tr()`, the switch, `data-i18n` labels; Russian text is the key |
 | `server.mjs`                 | Dev server on port 8090: serves `game.html` at `/`, takes `/__log` and `/__shot`       |
 | `src/surface/main.js`        | Device, pipelines, textures, uniforms, input, HUD, the frame loop                      |
 | `src/surface/game.js`        | Game state: modes, jet skis, the player body, cameras, dives, treasure pickup, hints   |

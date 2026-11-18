@@ -16,9 +16,11 @@ const UW_FILES = ['quality.js', 'math.js', 'shaders.js', 'world.js', 'main.js', 
 let uw = '';
 if (!process.argv.includes('--no-uw') && fs.existsSync(path.join(root, 'src/underwater/.integrated'))) {
   uw = UW_FILES.map((f) => fs.readFileSync(path.join(root, 'src/underwater', f), 'utf8')).join('\n');
-  uw = `(async()=>{${uw}\n})().catch(e=>{console.error(e);const s=document.getElementById('s');if(s)s.textContent='Подводный мир не запустился: '+e.message;});`;
+  uw = `(async()=>{${uw}\n})().catch(e=>{console.error(e);const s=document.getElementById('s');if(s)s.textContent=window.tr('Подводный мир не запустился: ')+e.message;});`;
 }
+const i18n = fs.readFileSync(path.join(root, 'src/i18n.js'), 'utf8');
 const page = fs.readFileSync(path.join(root, 'template.html'), 'utf8')
+  .replace('<!--I18N-->', () => `<script>\n${i18n}\n</script>`)
   .replace('<!--SURFACE-->', () => `<script type="module">\n${surface}\n</script>`)
   .replace('<!--UNDERWATER-->', () => (uw ? `<script>\n${uw}\n</script>` : ''));
 fs.writeFileSync(path.join(root, 'game.html'), page);

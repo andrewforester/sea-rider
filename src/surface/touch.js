@@ -8,7 +8,7 @@ export function setupTouch({ game, keys, sfx, onAny }) {
   if (!forced && !matchMedia('(pointer:coarse)').matches) return null;
   document.body.classList.add('touch');
   const go = document.querySelector('#load .go');
-  if (go) go.textContent = 'Остров готов — коснись экрана, чтобы играть';
+  if (go) { go.dataset.i18n = 'Остров готов — коснись экрана, чтобы играть'; go.textContent = window.tr(go.dataset.i18n); }
   const $ = (id) => document.getElementById(id);
   const rot = matchMedia('(orientation:portrait) and (pointer:coarse)');
   // page coordinates of a pointer (the page lies on its side in portrait: see template.html)
@@ -95,6 +95,7 @@ export function setupTouch({ game, keys, sfx, onAny }) {
     else if (m === 'walk') { a = 'Прыжок'; aCode = 'Space'; }
     else if (m === 'swim') { a = 'Нырнуть'; aCode = 'KeyQ'; }
     if (m === 'walk') b = 'Бег'; else if (m === 'swim') b = 'Быстрее';
+    a = a && window.tr(a); b = b && window.tr(b);
     if (a !== lastA) bA.textContent = lastA = a;
     if (b !== lastB) bB.textContent = lastB = b;
   }

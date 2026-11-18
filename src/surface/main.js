@@ -584,6 +584,7 @@ async function main() {
     keys[e.code] = true;
     window.loadSkip?.();
     if (e.code === 'KeyH') togglePanel();
+    if (e.code === 'KeyL' && !e.repeat) window.nextLang?.();
     if (!e.repeat) game.keyDown(e.code);
     if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
   });
