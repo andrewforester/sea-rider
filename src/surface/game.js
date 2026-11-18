@@ -24,7 +24,7 @@ export function createGame({ cam, terrainH, keys, ui, sfx, treasures, obstacles 
     s.parked = true; s.phase = k * 0.37;
     skis.push(s);
   }
-  let autoDiveT = 0;
+  let autoDiveT = 0, touch = false;
   const me = { x: 0, y: 0, z: 0, yaw: 0, pitch: -0.1, vy: 0, onGround: true, speed: 0, turn: 0, gy: 0 }; // first-person body
   let mode = 'ski';
   let busy = false; // during a fade
@@ -166,9 +166,13 @@ export function createGame({ cam, terrainH, keys, ui, sfx, treasures, obstacles 
     if (mode === 'under') return;
     for (let k = 0; k < 4; k++) ski.wh[k] = probe[4 + k * 4];
     const riding = mode === 'ski';
+    // keyboard plus the touch stick (keys.joyF / keys.joyR, analog)
+    const clamp1 = (v) => Math.max(-1, Math.min(1, v));
+    const f = clamp1((keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + (keys.joyF || 0));
+    const r = clamp1((keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + (keys.joyR || 0));
     const inp = {
-      throttle: riding ? (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) : 0,
-      steer: riding ? (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) : 0,
+      throttle: riding ? f : 0,
+      steer: riding ? r : 0,
       boost: !!(keys.ShiftLeft || keys.ShiftRight),
       riding,
     };
@@ -177,8 +181,6 @@ export function createGame({ cam, terrainH, keys, ui, sfx, treasures, obstacles 
     for (let i = 0; i < 2; i++) hit = Math.max(hit, stepSki(ski, inp, dt / 2, terrainH));
     if (hit > 4 && riding) { say('Бум! Осторожно, камни', 1.2); sfx.bump(Math.min(1, hit / 10)); }
 
-    const f = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0);
-    const r = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
     const fast = keys.ShiftLeft || keys.ShiftRight;
     // on foot and swimming A/D turn the view like steering the jet ski (eased turn rate)
     if (mode === 'swim' || mode === 'walk') {
@@ -325,6 +327,13 @@ export function createGame({ cam, terrainH, keys, ui, sfx, treasures, obstacles 
 
   function hud() {
     let h;
+    if (touch) {
+      if (mode === 'ski') h = `<b>${(ski.speed * 3.6).toFixed(0)}</b> км/ч · джойстик — газ и руль`;
+      else if (mode === 'swim') h = nearestSki() ? 'Жми <b>Сесть</b>' : 'Джойстик — плыть · смотри вниз и плыви — нырнёшь';
+      else if (mode === 'walk') h = nearestSki() ? 'Жми <b>Сесть</b>' : 'Джойстик — идти · справа — осмотреться';
+      else h = 'Веди пальцем — смотреть и плыть · два пальца — быстрее · плыви вверх — вынырнешь';
+      return { hint: h, message: messageT > 0 ? message : '', count: `⭐ ${found()} / ${total()}` };
+    }
     if (mode === 'ski') h = `<b>${(ski.speed * 3.6).toFixed(0)}</b> км/ч &nbsp;·&nbsp; W газ · S тормоз · A/D руль · Shift турбо · мышь — камера · Пробел — спрыгнуть`;
     else if (mode === 'swim') h = nearestSki() ? '<b>Пробел</b> — сесть на гидроцикл' : 'W — плыть · A/D — поворот · посмотри вниз и плыви — нырнёшь · к берегу — выйдешь на сушу';
     else if (mode === 'walk') h = nearestSki() ? '<b>Пробел</b> — сесть на гидроцикл' : 'W — идти · A/D — поворот · Shift — бежать · Пробел — прыжок · заходи в воду — поплывёшь';
@@ -334,7 +343,7 @@ export function createGame({ cam, terrainH, keys, ui, sfx, treasures, obstacles 
 
   return {
     bump: () => { if (mode === 'ski') { say('Бум! Осторожно, лодка', 1.2); sfx.bump(0.8); } },
-    get mode() { return mode; }, get time() { return time; }, get ski() { return ski; }, skis, me, probe, mouse, keyDown, probePoints, update,
+    get mode() { return mode; }, set touch(v) { touch = v; }, get nearSki() { return !!nearestSki(); }, get time() { return time; }, get ski() { return ski; }, skis, me, probe, mouse, keyDown, probePoints, update,
     fillModels, fillTreasures, hud, surface, foundUnderwater,
   };
 }

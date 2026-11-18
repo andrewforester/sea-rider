@@ -2,11 +2,18 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>Эгейский берег — гидроцикл и сокровища</title>
 <style>
-  html, body { margin: 0; height: 100%; background: #04121a; overflow: hidden; font: 14px/1.4 system-ui, sans-serif; color: #eef6f8; }
-  #game { position: fixed; inset: 0; cursor: crosshair; }
+  html, body { margin: 0; height: 100%; background: #04121a; overflow: hidden; font: 14px/1.4 system-ui, sans-serif; color: #eef6f8;
+               touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  /* a phone held upright gets the whole page turned on its side, so the game is always landscape */
+  @media (orientation: portrait) and (pointer: coarse) {
+    body { width: 100dvh; height: 100dvw; transform-origin: 0 0; transform: rotate(90deg) translateY(-100%); }
+  }
+  #game { position: fixed; inset: 0; cursor: crosshair; transition: filter 1s; }
   #game canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   #cu { visibility: hidden; }
   body[data-mode="under"] #hud { display: none; }
@@ -42,17 +49,60 @@
   #err { position: fixed; inset: 0; display: none; padding: 40px; color: #f88; font: 16px system-ui; white-space: pre-wrap; background: #000; }
   /* underwater renderer's own elements (loading bar reused, stats line) */
   #i { position: fixed; top: 30px; left: 12px; margin: 0; font: 12px/1.6 ui-monospace, monospace; pointer-events: none; }
-  #load { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); width: 260px; font-size: 12px; text-align: center;
-          opacity: .85; pointer-events: none; transition: opacity 1s; }
-  #p { height: 4px; border-radius: 4px; background: #0008; overflow: hidden; margin-bottom: 3px; }
-  #b { display: block; height: 100%; background: linear-gradient(90deg, #14a9c4, #9ff6ff); transform: scaleX(0); transform-origin: 0; }
+  /* loading screen in the middle; the game shows through a blur that clears as loading goes on */
+  #load { position: fixed; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center;
+          gap: 10px; text-align: center; pointer-events: none; transition: opacity 1s;
+          background: radial-gradient(ellipse at center, #04121a55 0%, #04121a00 70%); }
+  #load .ttl { font: 800 clamp(30px, 6vw, 64px)/1 system-ui, sans-serif; letter-spacing: .02em; color: #fff;
+               text-shadow: 0 2px 24px #0009, 0 0 40px #39c6e877; }
+  #load .sub { font-size: clamp(14px, 1.6vw, 20px); color: #ffe08a; text-shadow: 0 1px 8px #000b; margin-bottom: 14px; }
+  #p { width: min(420px, 70vw); height: 10px; border-radius: 6px; background: #0007; overflow: hidden; box-shadow: 0 0 0 1px #ffffff22; }
+  #b { display: block; height: 100%; background: linear-gradient(90deg, #14a9c4, #9ff6ff, #ffe08a); transform: scaleX(0); transform-origin: 0; }
+  #load .row { display: flex; gap: 12px; align-items: baseline; font-size: 15px; text-shadow: 0 1px 6px #000c; }
+  #pc { font-weight: 800; color: #9ff6ff; min-width: 3em; }
+  #load .go { display: none; margin-top: 10px; padding: 8px 18px; border-radius: 20px; background: #ffe08a; color: #3a2400;
+              font-weight: 800; animation: pulse 1.4s ease-in-out infinite; }
+  #load.can .go { display: block; }
+  @keyframes pulse { 50% { transform: scale(1.06); box-shadow: 0 0 24px #ffe08a88; } }
+  /* after you start playing early, the underwater loading shrinks into a small bar at the top */
+  #load.mini { inset: 12px auto auto 50%; transform: translateX(-50%); width: 260px; gap: 3px; background: none; font-size: 12px; }
+  #load.mini .ttl, #load.mini .sub, #load.mini .go, #load.mini #pc { display: none; }
+  #load.mini #p { width: 100%; height: 4px; }
+  #load.mini .row { font-size: 12px; opacity: .85; }
   #load.done { opacity: 0; }
+  /* touch controls: a floating stick on the left, look by dragging on the right, two buttons */
+  #touch { display: none; position: fixed; inset: 0; z-index: 3; }
+  body.touch #touch { display: block; }
+  body[data-mode="under"] #touch { display: none; }
+  #look { position: absolute; left: 42%; right: 0; top: 0; bottom: 0; }
+  #stickzone { position: absolute; left: 0; width: 42%; top: 25%; bottom: 0; }
+  #joy { position: absolute; width: 130px; height: 130px; margin: -65px 0 0 -65px; border-radius: 50%; left: calc(110px + env(safe-area-inset-left)); top: calc(100% - 115px);
+         background: radial-gradient(#ffffff10, #ffffff22); box-shadow: inset 0 0 0 2px #ffffff55; pointer-events: none; opacity: .55; }
+  #joy.on { opacity: 1; }
+  #knob { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%;
+          background: #ffffffcc; box-shadow: 0 2px 10px #0006; }
+  .tb { position: absolute; border: 0; border-radius: 50%; font: 800 14px system-ui, sans-serif; color: #fff;
+        background: #04121a88; box-shadow: inset 0 0 0 2px #ffffff77; backdrop-filter: blur(4px); touch-action: none; }
+  .tb.on { background: #ffffff55; }
+  #bA { right: calc(24px + env(safe-area-inset-right)); bottom: 28px; width: 96px; height: 96px; background: #e0332bbb; font-size: 15px; }
+  #bB { right: calc(136px + env(safe-area-inset-right)); bottom: 22px; width: 70px; height: 70px; }
+  #bC { right: calc(40px + env(safe-area-inset-right)); bottom: 140px; width: 64px; height: 64px; }
+  #bA:empty, #bB:empty, #bC:empty { display: none; }
+  body.touch #hud { display: none; }
+  body.touch #hint { bottom: 8px; font-size: 12px; padding: 5px 12px; max-width: 46vw; white-space: normal; text-align: center; }
+  body.touch #hint b { font-size: 14px; }
+  body.touch #count { font-size: 18px; top: 8px; right: 10px; }
+  body.touch #msg { font-size: 17px; top: 18%; }
 </style>
 </head>
 <body data-mode="surface">
 <div id="game"><canvas id="cs"></canvas><canvas id="cu"></canvas></div>
 <div id="hud"><div id="fps">запуск…</div><div class="help">клик — захват мыши · H — настройки моря</div></div>
-<div id="load"><div id="p"><i id="b"></i></div><span id="s">Подводный мир загружается…</span><span id="w" hidden></span></div>
+<div id="load"><div class="ttl">Эгейский берег</div><div class="sub">гидроцикл и сокровища ⭐</div>
+  <div id="p"><i id="b"></i></div><div class="row"><span id="pc">0%</span><span id="s">Загрузка…</span></div><span id="w" hidden></span>
+  <div class="go">Остров готов — нажми любую клавишу или коснись экрана</div></div>
+<div id="touch"><div id="stickzone"></div><div id="look"></div><div id="joy"><div id="knob"></div></div>
+  <button class="tb" id="bA"></button><button class="tb" id="bB"></button><button class="tb" id="bC"></button></div>
 <div id="hint"></div>
 <div id="msg"></div>
 <div id="skimark" style="display:none"><div class="b"><span class="t"></span><i class="a"></i></div></div>
@@ -61,6 +111,33 @@
 <div id="fade"></div>
 <div id="panel" class="hidden"></div>
 <div id="err"></div>
+<script>
+// Loading screen. The island takes the first 40% of the bar, the underwater world the rest. Once the island renders
+// it shows through a blur that clears as the rest loads; a key or a tap starts the game early.
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const part = { surf: 0, uw: 0 };
+  let shown = 0, state = 'load'; // load -> mini (playing early) -> done
+  const blur = (t) => { if (state === 'load') $('game').style.filter = `blur(${(26 * Math.min(1, (1 - t) / 0.6)).toFixed(1)}px)`; };
+  blur(0);
+  window.loadProgress = (k, v, msg, ms = 600) => {
+    part[k] = Math.max(part[k], v);
+    const t = part.surf * 0.4 + part.uw * 0.6;
+    if (msg) $('s').textContent = msg;
+    $('pc').textContent = Math.round(t * 100) + '%';
+    const a = $('b').animate({ transform: [`scaleX(${shown})`, `scaleX(${t})`] }, { duration: ms, fill: 'forwards', easing: 'cubic-bezier(.3,.5,.5,1)' });
+    shown = t;
+    blur(t);
+    if (part.surf >= 1) $('load').classList.add('can');
+    if (t >= 0.999) { state = 'done'; $('game').style.filter = ''; $('load').classList.add('done'); }
+    return a;
+  };
+  window.loadSkip = () => {
+    if (state !== 'load' || part.surf < 1) return;
+    state = 'mini'; $('game').style.filter = ''; $('load').classList.add('mini');
+  };
+})();
+</script>
 <!--SURFACE-->
 <!--UNDERWATER-->
 </body>

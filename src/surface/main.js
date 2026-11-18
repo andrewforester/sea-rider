@@ -8,6 +8,7 @@ import { TRANS_LUT, MS_LUT, SKYVIEW_LUT, ENV_CUBE, CUBE_MIPS, SUN_VIS } from './
 import { OCEAN, SKY_BG, HEIGHT_PROBE } from './wgsl/ocean.js';
 import { BLOOM_DOWN, BLOOM_UP, COMPOSITE } from './wgsl/post.js';
 import { TERRAIN, ROCKS, MODEL } from './wgsl/land.js';
+import { setupTouch } from './touch.js';
 import { buildIsland, HM_N, sampleH, shadowHeights } from './island.js';
 import { jetSkiMesh, riderMesh } from './jetski.js';
 import { createGame } from './game.js';
@@ -73,7 +74,12 @@ function mat4Mul(out, a, b) {
   }
 }
 
+const COARSE = matchMedia('(pointer:coarse)').matches;
+const progress = (v, msg) => window.loadProgress?.('surf', v, msg);
+// lets the loading screen paint before a long synchronous step
+const breathe = () => new Promise((r) => setTimeout(r, 30));
 async function main() {
+  progress(0.08, 'Готовим море…');
   if (!navigator.gpu) fail('WebGPU is not available in this browser.');
   const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
   if (!adapter) fail('No WebGPU adapter found.');
@@ -238,7 +244,11 @@ async function main() {
   });
   const frameUBO = mkBuf(384, GU.UNIFORM | GU.COPY_DST, 'frame ubo');
   // ---- island: heightmap texture (r = height, g = beachness), rocks, jet ski
+  progress(0.25, 'Строим остров и скалы…');
+  await breathe();
   const isl = buildIsland();
+  progress(0.6, 'Солнце и тени…');
+  await breathe();
   const terrainH = (x, z) => sampleH(isl.H, x, z);
   const hmTex = device.createTexture({ label: 'heightmap', size: [HM_N, HM_N], format: 'rgba32float', usage: TU.TEXTURE_BINDING | TU.COPY_DST });
   {
@@ -394,6 +404,7 @@ async function main() {
   // Water height under the camera (async readback, a few frames of latency) so the
   // floating camera rides above passing crests instead of clipping into them.
   const probePipe = await computePipe(HEIGHT_PROBE, 'height probe');
+  progress(0.9, 'Спускаем гидроцикл на воду…');
   const probeOut = mkBuf(128, GU.STORAGE | GU.COPY_SRC, 'probe out');
   const probeIn = mkBuf(128, GU.STORAGE | GU.COPY_DST, 'probe in');
   const probeInF = new Float32Array(32);
@@ -453,7 +464,8 @@ async function main() {
     // render at most ~2.3 MP (the browser scales up to the window): keeps retina screens fast
     let dpr = window.devicePixelRatio || 1;
     const px = canvas.clientWidth * canvas.clientHeight * dpr * dpr;
-    if (px > 2.3e6) dpr *= Math.sqrt(2.3e6 / px);
+    const maxPx = COARSE ? 1.1e6 : 2.3e6;   // phones and tablets: fewer pixels, the GPU is much smaller
+    if (px > maxPx) dpr *= Math.sqrt(maxPx / px);
     // at least 256 px: the 8-level bloom chain needs it (the browser scales a tiny canvas)
     const w = fw || Math.max(256, Math.round(canvas.clientWidth * dpr));
     const h = fh || Math.max(256, Math.round(canvas.clientHeight * dpr));
@@ -570,6 +582,7 @@ async function main() {
   addEventListener('keydown', (e) => {
     if (game.mode === 'under') return;
     keys[e.code] = true;
+    window.loadSkip?.();
     if (e.code === 'KeyH') togglePanel();
     if (!e.repeat) game.keyDown(e.code);
     if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
@@ -577,7 +590,9 @@ async function main() {
   addEventListener('keyup', (e) => { keys[e.code] = false; });
   addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
   const lockEl = document.getElementById('game');
-  lockEl.addEventListener('click', () => { sfx.start(); if (!document.pointerLockElement) lockEl.requestPointerLock(); });
+  lockEl.addEventListener('click', () => { sfx.start(); window.loadSkip?.(); if (!COARSE && !document.pointerLockElement) lockEl.requestPointerLock?.(); });
+  const touchUI = setupTouch({ game, keys, sfx, onAny: () => window.loadSkip?.() });
+  if (touchUI) game.touch = true;
   let dragging = false;
   canvas.addEventListener('mousedown', (e) => { if (e.button === 2) dragging = true; });
   addEventListener('mouseup', () => { dragging = false; });
@@ -747,6 +762,7 @@ async function main() {
   let lastHint = '', lastMsg = '', lastCount = '';
   const hudCount = document.getElementById('count');
   function updateHud() {
+    touchUI?.update();
     const h = game.hud();
     if (h.hint !== lastHint) { hudHint.innerHTML = lastHint = h.hint; }
     if (h.count !== lastCount) { hudCount.textContent = lastCount = h.count; hudCount.classList.remove('pop'); void hudCount.offsetWidth; hudCount.classList.add('pop'); }
@@ -764,7 +780,7 @@ async function main() {
     const w = v[3] * px + v[7] * py + v[11] * pz + v[15];
     let nx = cx / Math.abs(w), ny = cy / Math.abs(w);
     const inView = w > 0 && Math.abs(nx) < 0.92 && Math.abs(ny) < 0.88;
-    const vw = innerWidth, vh = innerHeight;
+    const vw = document.body.clientWidth, vh = document.body.clientHeight; // the page may lie on its side (phones)
     let sx, sy, ang;
     if (inView) { sx = (nx * 0.5 + 0.5) * vw; sy = (0.5 - ny * 0.5) * vh; ang = 90; }
     else {
@@ -778,7 +794,6 @@ async function main() {
     markA.style.transform = `rotate(${ang.toFixed(1)}deg)`;
     markT.textContent = `${d < 1000 ? d.toFixed(0) + ' м' : (d / 1000).toFixed(1) + ' км'}`;
   }
-  window.SURFACE_READY = true;
 
   // --------------------------------------------------------------------------------------
   // Frame
@@ -877,6 +892,7 @@ async function main() {
 
     writeFrame(simTime);
     updateMarker();
+    if (!window.SURFACE_READY && frameIndex > 2) { window.SURFACE_READY = true; progress(1, 'Подводный мир загружается…'); }
     writeSimStatic();
     simF[52] = simTime; simF[53] = dt;
     device.queue.writeBuffer(simUBO, 0, simF);

@@ -9,15 +9,15 @@ const UW = window.UW = { ready: false, active: false };
 const rot = matchMedia('(orientation:portrait) and (pointer:coarse)');
 // loading bar: each stage glides it to `to` (the share done) over ~`ms` on the compositor, so it moves while this
 // thread is busy
-let loaded = 0, dead; // dead: the graphics device was lost
+let dead; // dead: the graphics device was lost
 const say = (m, to, ms) => {
-  if (!dead) $('s').textContent = m;
-  const a = $('b').animate({ transform: [`scaleX(${loaded})`, `scaleX(${to})`] }, { duration: ms, fill: 'forwards', easing: 'cubic-bezier(.3,.5,.5,1)' });
-  loaded = to;
+  const a = window.loadProgress('uw', to, dead ? null : m, ms);
   // go on once the animation runs: one not started before the thread gets busy stays stuck (timer: hidden tabs)
   return new Promise((r) => { a.ready.then(() => setTimeout(r)); setTimeout(r, document.hidden ? 0 : 1e3); });
 };
 const fail = (m) => { throw new Error(m, { cause: 1 }); }; // cause marks a message that is shown as it is
+// the island loads first (sharing the GPU slows both); the underwater world loads while you already play
+while (!window.SURFACE_READY) await new Promise((r) => setTimeout(r, 50));
 if (!navigator.gpu) fail('This scene needs WebGPU. Try a current Chrome or Edge.');
 const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
 if (!adapter) fail('No WebGPU adapter found.');
