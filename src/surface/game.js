@@ -9,6 +9,8 @@ import { itemPos, itemMatrix } from './treasures.js';
 const UW_START = { x: 0, y: -2.5, z: 0 };
 const EYE = 1.8;           // eye height above the ground when walking
 const STAND_DEPTH = 1.0;   // water shallower than this: you stand up and walk
+const SURFACE_SKI_DIST = [12, 10, 14, 8, 15]; // after a dive the jet ski waits this far away, m (tried in order)
+const SKI_DEPTH = 1.5;     // water at least this deep under a jet ski brought to you
 
 export function createGame({ cam, terrainH, keys, ui, sfx, treasures, obstacles }) {
   let ski = makeSki(SPAWN.x, SPAWN.z, SPAWN.yaw);   // the active jet ski (ridden, or the last one ridden)
@@ -117,8 +119,26 @@ export function createGame({ cam, terrainH, keys, ui, sfx, treasures, obstacles 
       ui.setMode('surface');
       sfx.ambient(true);
       sfx.splash(0.8);
+      skiNearby();
       say('Вынырнул!', 2);
     });
+  }
+  // after a dive the jet ski comes along: unless one is already close, the active one waits a short swim
+  // away, in front of you where possible, in water deep enough and clear of rocks
+  function skiNearby() {
+    if (skis.some((s) => Math.hypot(me.x - s.x, me.z - s.z) <= SURFACE_SKI_DIST[4])) return;
+    const deep = (x, z) => -terrainH(x, z) > SKI_DEPTH;
+    for (const d of SURFACE_SKI_DIST) {
+      for (let k = 0; k < 16; k++) {
+        const a = me.yaw + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * Math.PI / 8; // straight ahead first, then to the sides
+        const x = me.x + Math.sin(a) * d, z = me.z - Math.cos(a) * d;
+        if (!deep(x, z) || !deep(x + 2, z) || !deep(x - 2, z) || !deep(x, z + 2) || !deep(x, z - 2)) continue;
+        Object.assign(ski, { x, z, y: 0.1, vx: 0, vy: 0, vz: 0, yawRate: 0, pitch: 0, roll: 0, pitchVel: 0, rollVel: 0, speed: 0 });
+        ski.yaw = a + Math.PI / 2; // side on, so the seat faces you
+        lastWake = null;
+        return;
+      }
+    }
   }
   // the underwater world reports finds here
   function foundUnderwater() {
