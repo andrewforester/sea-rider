@@ -192,6 +192,15 @@ export function hullPoint(s, px, pz) {
   return [x, y, z];
 }
 
+// On a beach the jet has no water to push, so a ski that ran aground could never get back.
+// Touching the ground it crawls instead: slowly forward or back with the throttle, turning in place,
+// and while ridden it slides down a sloping beach toward the sea.
+const CRAWL_SPEED = 2.6;   // m/s, top speed on the sand
+const CRAWL_ACC = 7;       // m/s², throttle push on the sand
+const CRAWL_TURN = 1.1;    // rad/s, turning on the sand
+const CRAWL_GRIP = 3;      // 1/s, ground friction below CRAWL_SPEED (above it the hull digs in hard)
+const BEACH_SLIDE = 0.5;   // share of gravity along the slope that slides a ridden ski back to the water
+
 // input: { throttle -1..1, steer -1..1, boost bool, riding bool }
 export function stepSki(s, inp, dt, terrainH) {
   const G = 9.81;
@@ -248,7 +257,7 @@ export function stepSki(s, inp, dt, terrainH) {
   s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt;
 
   // terrain / rocks: walls push out and bounce, gentle ground slides
-  let hit = 0;
+  let hit = 0, ground = 0, sgx = 0, sgz = 0;
   const pts = [[0, 1.45], [0, -1.4], [-0.55, 0.2], [0.55, 0.2], [-0.5, -1.0], [0.5, -1.0], [0, 0]];
   for (const [px, pz] of pts) {
     const [x, y, z] = hullPoint(s, px, pz);
@@ -269,9 +278,22 @@ export function stepSki(s, inp, dt, terrainH) {
     } else {
       s.y += pen * 0.5;
       if (s.vy < 0) s.vy = 0;
-      const k = Math.exp(-dt * 2.5);
-      s.vx *= k; s.vz *= k;
+      ground++; sgx += gx; sgz += gz;
       hit = Math.max(hit, 0.01);
+    }
+  }
+  if (ground) {
+    // friction: hard while running aground fast, light at crawling speed so the ski can move off again
+    const grip = Math.hypot(s.vx, s.vz) > CRAWL_SPEED ? 2.5 * ground : CRAWL_GRIP;
+    const k = Math.exp(-dt * grip);
+    s.vx *= k; s.vz *= k;
+    if (inp.riding) {
+      if (!inWater) { s.vx -= sgx / ground * G * BEACH_SLIDE * dt; s.vz -= sgz / ground * G * BEACH_SLIDE * dt; }
+      const fwd = s.vx * fx + s.vz * fz;
+      if (inp.throttle * fwd < CRAWL_SPEED) { s.vx += fx * inp.throttle * CRAWL_ACC * dt; s.vz += fz * inp.throttle * CRAWL_ACC * dt; }
+      // turn in place; backing up turns the other way, like a car
+      const dir = inp.throttle < -0.1 ? -1 : 1;
+      if (inp.steer) s.yawRate += (inp.steer * CRAWL_TURN * dir - s.yawRate) * Math.min(1, dt * 6);
     }
   }
   s.speed = Math.hypot(s.vx, s.vz);
