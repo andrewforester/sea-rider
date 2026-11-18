@@ -7,9 +7,9 @@ WebGPU, no engine. The in-game interface is in Russian.
 
 ## Controls
 
-- **WASD / arrows** — throttle and steering / walking / swimming; **mouse** — look around (click to capture the cursor)
+- **W / S** — throttle / walk / swim, **A / D** — steer or turn; **mouse** — look around (click to capture the cursor)
 - **Shift** — faster, **Space** — jump
-- **F** — get on the nearest jet ski, or jump off it
+- **Space** or **F** — get on the nearest jet ski, or jump off it; a red marker shows where your jet ski is
 - Diving and surfacing are automatic: look down and swim forward to dive; swim up to surface. **Q** dives manually.
 
 Collect all the ⭐ — on the beaches, in the village, on the hill tops, on buoys at sea and in the underwater world.

@@ -752,6 +752,32 @@ async function main() {
     if (h.count !== lastCount) { hudCount.textContent = lastCount = h.count; hudCount.classList.remove('pop'); void hudCount.offsetWidth; hudCount.classList.add('pop'); }
     if (h.message !== lastMsg) { hudMsg.textContent = lastMsg = h.message; hudMsg.style.opacity = h.message ? 1 : 0; }
   }
+  // pointer to the jet ski while swimming or walking: a tag over it when in view, an arrow at the
+  // screen edge when it is behind you or off to the side
+  const mark = document.getElementById('skimark'), markT = mark.querySelector('.t'), markA = mark.querySelector('.a');
+  function updateMarker() {
+    const m = game.mode, s = game.ski;
+    const d = Math.hypot(s.x - cam.x, s.z - cam.z);
+    if ((m !== 'swim' && m !== 'walk') || d < 7) { mark.style.display = 'none'; return; }
+    const px = s.x - cam.x, py = s.y + 1.6 - cam.y, pz = s.z - cam.z, v = viewProj;
+    const cx = v[0] * px + v[4] * py + v[8] * pz + v[12], cy = v[1] * px + v[5] * py + v[9] * pz + v[13];
+    const w = v[3] * px + v[7] * py + v[11] * pz + v[15];
+    let nx = cx / Math.abs(w), ny = cy / Math.abs(w);
+    const inView = w > 0 && Math.abs(nx) < 0.92 && Math.abs(ny) < 0.88;
+    const vw = innerWidth, vh = innerHeight;
+    let sx, sy, ang;
+    if (inView) { sx = (nx * 0.5 + 0.5) * vw; sy = (0.5 - ny * 0.5) * vh; ang = 90; }
+    else {
+      if (w <= 0) ny = -Math.abs(ny) - 1;   // behind you: keep the side, pin it to the bottom edge
+      const k = Math.min(0.88 / Math.max(Math.abs(nx), 1e-4), 0.8 / Math.max(Math.abs(ny), 1e-4));
+      sx = (nx * k * 0.5 + 0.5) * vw; sy = (0.5 - ny * k * 0.5) * vh;
+      ang = Math.atan2(-ny, nx) * 180 / Math.PI;
+    }
+    mark.style.display = '';
+    mark.style.transform = `translate(${sx.toFixed(1)}px, ${sy.toFixed(1)}px)`;
+    markA.style.transform = `rotate(${ang.toFixed(1)}deg)`;
+    markT.textContent = `${d < 1000 ? d.toFixed(0) + ' м' : (d / 1000).toFixed(1) + ' км'}`;
+  }
   window.SURFACE_READY = true;
 
   // --------------------------------------------------------------------------------------
@@ -840,7 +866,7 @@ async function main() {
       fpsAcc = 0; fpsN = 0; fpsT = 0;
     }
     if (fixedDt) dt = fixedDt;
-    if (game.mode === 'under') { game.update(dt); updateHud(); last = now; return; }
+    if (game.mode === 'under') { game.update(dt); updateHud(); updateMarker(); last = now; return; }
     wake = game.update(dt);
     boats.update(dt, simTime);
     if (game.mode !== 'under') { const bh = boats.collide(game.ski); if (bh > 3) game.bump(); }
@@ -850,6 +876,7 @@ async function main() {
     frameIndex++;
 
     writeFrame(simTime);
+    updateMarker();
     writeSimStatic();
     simF[52] = simTime; simF[53] = dt;
     device.queue.writeBuffer(simUBO, 0, simF);

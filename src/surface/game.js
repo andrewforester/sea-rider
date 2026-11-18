@@ -7,7 +7,7 @@ import { itemPos, itemMatrix } from './treasures.js';
 
 // where a dive starts in the underwater world's own coordinates (open water above its canyon)
 const UW_START = { x: 0, y: -2.5, z: 0 };
-const EYE = 1.65;          // eye height when walking
+const EYE = 1.8;           // eye height above the ground when walking
 const STAND_DEPTH = 1.0;   // water shallower than this: you stand up and walk
 
 export function createGame({ cam, terrainH, keys, ui, sfx, treasures, obstacles }) {
@@ -25,7 +25,7 @@ export function createGame({ cam, terrainH, keys, ui, sfx, treasures, obstacles 
     skis.push(s);
   }
   let autoDiveT = 0;
-  const me = { x: 0, y: 0, z: 0, yaw: 0, pitch: -0.1, vy: 0, onGround: true, speed: 0 }; // first-person body
+  const me = { x: 0, y: 0, z: 0, yaw: 0, pitch: -0.1, vy: 0, onGround: true, speed: 0, turn: 0, gy: 0 }; // first-person body
   let mode = 'ski';
   let busy = false; // during a fade
   const orbit = { yaw: 0, pitch: -0.2, idle: 0 };
@@ -55,26 +55,26 @@ export function createGame({ cam, terrainH, keys, ui, sfx, treasures, obstacles 
   function keyDown(code) {
     sfx.start();
     if (busy) return;
-    if (code === 'KeyF') {
-      if (mode === 'ski') jumpOff();
-      else if (mode === 'swim' || mode === 'walk') {
-        const s = nearestSki();
-        if (s) mount(s); else say('Гидроцикл далеко — подойди ближе');
-      }
+    // F or Space: get on / off the jet ski (Space jumps when no jet ski is near)
+    if (code === 'KeyF' || code === 'Space') {
+      if (mode === 'ski') { jumpOff(); return; }
+      const s = (mode === 'swim' || mode === 'walk') && nearestSki();
+      if (s) { mount(s); return; }
+      if (code === 'KeyF') say('Гидроцикл далеко — плыви к стрелке');
     }
     if (mode === 'swim' && (code === 'KeyQ' || code === 'KeyC' || code === 'ControlLeft')) startDive();
-    if (mode === 'walk' && code === 'Space' && me.onGround) { me.vy = 5.8; me.onGround = false; }
+    if (mode === 'walk' && code === 'Space' && me.onGround) { me.vy = 7; me.onGround = false; }
   }
 
   function jumpOff() {
     // land beside the ski, looking the way it points; on a beach you are already standing
     const [x, , z] = hullPoint(ski, -1.4, 0.2);
-    me.x = x; me.z = z; me.yaw = ski.yaw - 0.5; me.pitch = -0.1; me.vy = 0;
-    if (water() < STAND_DEPTH) { mode = 'walk'; me.y = terrainH(x, z) + EYE; say('Ты на берегу! Ищи сокровища ✨', 2.5); }
+    me.x = x; me.z = z; me.yaw = ski.yaw - 0.5; me.pitch = -0.1; me.vy = 0; me.speed = 0; me.turn = 0;
+    if (water() < STAND_DEPTH) { mode = 'walk'; me.gy = terrainH(x, z); me.y = me.gy + EYE; me.onGround = true; say('Ты на берегу! Ищи сокровища ✨', 2.5); }
     else { mode = 'swim'; me.y = 0; sfx.splash(1); say('Посмотри вниз и плыви — нырнёшь. Плыви к берегу — выйдешь на сушу'); }
   }
   function nearestSki() {
-    let best = null, bd = 4.5;
+    let best = null, bd = 6;
     for (const s of skis) { const d = Math.hypot(me.x - s.x, me.z - s.z); if (d < bd) { bd = d; best = s; } }
     return best;
   }
@@ -111,7 +111,7 @@ export function createGame({ cam, terrainH, keys, ui, sfx, treasures, obstacles 
       window.UW.leave();
       let x = dive.x + (pose.x - UW_START.x), z = dive.z + (pose.z - UW_START.z);
       if (terrainH(x, z) > -STAND_DEPTH - 0.5) { x = dive.x; z = dive.z; }
-      me.x = x; me.z = z; me.yaw = pose.yaw; me.pitch = 0.05;
+      me.x = x; me.z = z; me.yaw = pose.yaw; me.pitch = 0.05; me.speed = 0; me.turn = 0;
       autoDiveT = 2;
       mode = 'swim';
       ui.setMode('surface');
@@ -180,6 +180,12 @@ export function createGame({ cam, terrainH, keys, ui, sfx, treasures, obstacles 
     const f = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0);
     const r = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
     const fast = keys.ShiftLeft || keys.ShiftRight;
+    // on foot and swimming A/D turn the view like steering the jet ski (eased turn rate)
+    if (mode === 'swim' || mode === 'walk') {
+      const rate = mode === 'walk' ? 2.3 : 1.7;
+      me.turn += (r * rate - me.turn) * Math.min(1, dt * 9);
+      me.yaw += me.turn * dt;
+    }
     const cy = Math.cos(me.yaw), sy = Math.sin(me.yaw);
     if (mode === 'ski') {
       // chase camera
@@ -200,52 +206,54 @@ export function createGame({ cam, terrainH, keys, ui, sfx, treasures, obstacles 
       cam.yaw = Math.atan2(ddx, -ddz);
       cam.pitch = Math.atan2(ddy, Math.hypot(ddx, ddz));
     } else if (mode === 'swim') {
-      const sp = (fast ? 2.6 : 1.5) * dt;
-      me.x += (sy * f + cy * r) * sp; me.z += (-cy * f + sy * r) * sp;
-      me.speed = Math.hypot(f, r) * sp / dt;
+      const target = (fast ? 3.2 : 1.9) * f * (f < 0 ? 0.5 : 1);
+      me.speed += (target - me.speed) * Math.min(1, dt * 4);
+      const sp = me.speed * dt;
+      me.x += sy * sp; me.z += -cy * sp;
       // rocks sticking out of the water are not swimmable: slide around them
-      if (terrainH(me.x, me.z) > 0.3) { me.x -= (sy * f + cy * r) * sp; me.z -= (-cy * f + sy * r) * sp; }
+      if (terrainH(me.x, me.z) > 0.3) { me.x -= sy * sp; me.z -= -cy * sp; me.speed = 0; }
       const wy = probe[20];
       me.y += (wy + 0.18 - me.y) * Math.min(1, dt * 8);
       if (f > 0 && me.pitch < -0.4 && autoDiveT <= 0 && water() > 2.5 && window.UW?.ready && !busy) startDive();
       // reached the shallows: stand up
       if (water() < STAND_DEPTH * 0.8 && terrainH(me.x, me.z) > -STAND_DEPTH) {
-        mode = 'walk'; me.vy = 0; me.onGround = true;
-        say('Ты вышел на берег! Space — прыжок, ищи сокровища ✨', 3);
+        mode = 'walk'; me.vy = 0; me.onGround = true; me.gy = me.y - EYE; me.speed = Math.max(me.speed, 0);
+        say('Ты вышел на берег! Ищи сокровища ✨', 3);
       }
       cam.x = me.x; cam.y = me.y; cam.z = me.z; cam.yaw = me.yaw; cam.pitch = me.pitch;
     } else if (mode === 'walk') {
       const g0 = terrainH(me.x, me.z);
-      const wet = Math.max(0, -g0);                       // wading slows you down a little
-      const target = (fast ? 10 : 5.5) * (1 - Math.min(wet, 1) * 0.3) * (Math.hypot(f, r) ? 1 : 0);
-      me.speed += (target - me.speed) * Math.min(1, dt * 10); // quick, light acceleration
-      const sp = me.speed;
-      const l = Math.hypot(f, r) || 1;
-      if (Math.hypot(f, r)) { me.mdx = (sy * f + cy * r) / l; me.mdz = (-cy * f + sy * r) / l; }
-      const mx = (me.mdx || 0) * sp * dt, mz = (me.mdz || 0) * sp * dt;
+      const wet = Math.max(0, -g0);                        // wading slows you down a little
+      const target = (fast ? 12 : 7) * (1 - Math.min(wet, 1) * 0.25) * f * (f < 0 ? 0.6 : 1);
+      me.speed += (target - me.speed) * Math.min(1, dt * 12); // quick, light acceleration
+      const mx = sy * me.speed * dt, mz = -cy * me.speed * dt;
       const nx = me.x + mx, nz = me.z + mz;
-      const g1 = terrainH(nx, nz);
       const step = Math.hypot(mx, mz);
       // too steep uphill (cliffs, tall rocks): blocked; try sliding along each axis
       const climb = (h) => h - g0 <= Math.max(0.6, step * 1.4) || h <= g0;
       const feet = me.y - EYE;
-      if (climb(g1) || feet > g1 + 0.05) { me.x = nx; me.z = nz; }
+      if (climb(terrainH(nx, nz)) || feet > terrainH(nx, nz) + 0.05) { me.x = nx; me.z = nz; }
       else if (climb(terrainH(me.x + mx, me.z))) me.x += mx;
       else if (climb(terrainH(me.x, me.z + mz))) me.z += mz;
+      else me.speed *= 0.5;
       pushOut(me, 0.4);
-      // gravity / jumping
       const g = terrainH(me.x, me.z);
-      me.vy -= 12 * dt;
-      me.y += me.vy * dt;
-      if (me.y - EYE <= g) {
-        if (!me.onGround && me.vy < -6) sfx.bump(0.3);
-        me.y = Math.max(me.y + (g + EYE - me.y) * Math.min(1, dt * 18), g + EYE - 0.3);
-        me.vy = 0; me.onGround = true;
-      } else if (me.y - EYE > g + 0.3) me.onGround = false;
-      // head bob
-      const bob = me.onGround ? Math.sin(time * 9) * 0.035 * Math.min(me.speed / 5.5, 1) : 0;
+      if (me.onGround && me.vy <= 0 && g > me.gy - 1.2) {
+        // on the ground: glide along it (smoothed, so pebbles and steps do not shake the view)
+        me.gy += (g - me.gy) * Math.min(1, dt * 12);
+        me.y = me.gy + EYE;
+      } else {
+        // jump or fall: a short, snappy arc
+        me.onGround = false;
+        me.vy -= 22 * dt;
+        me.y += me.vy * dt;
+        if (me.y - EYE <= g) { me.y = g + EYE; me.gy = g; me.vy = 0; me.onGround = true; }
+      }
+      // light head bob with the stride
+      me.stride = (me.stride || 0) + dt * Math.abs(me.speed) * 1.25;
+      const bob = me.onGround ? Math.sin(me.stride) * 0.04 * Math.min(Math.abs(me.speed) / 7, 1) : 0;
       // deep water again: swim
-      if (-g > STAND_DEPTH * 1.2) { mode = 'swim'; sfx.splash(0.5); say('Плывёшь', 1); }
+      if (-g > STAND_DEPTH * 1.2) { mode = 'swim'; me.speed *= 0.3; sfx.splash(0.5); say('Плывёшь', 1); }
       cam.x = me.x; cam.y = me.y + bob; cam.z = me.z; cam.yaw = me.yaw; cam.pitch = me.pitch;
     }
 
@@ -317,9 +325,9 @@ export function createGame({ cam, terrainH, keys, ui, sfx, treasures, obstacles 
 
   function hud() {
     let h;
-    if (mode === 'ski') h = `<b>${(ski.speed * 3.6).toFixed(0)}</b> км/ч &nbsp;·&nbsp; W газ · S тормоз · A/D руль · Shift турбо · мышь — камера · F — спрыгнуть`;
-    else if (mode === 'swim') h = nearestSki() ? '<b>F</b> — сесть на гидроцикл' : 'WASD — плыть · посмотри вниз и плыви — нырнёшь · к берегу — выйдешь на сушу';
-    else if (mode === 'walk') h = nearestSki() ? '<b>F</b> — сесть на гидроцикл' : 'WASD — идти · Shift — бежать · Space — прыжок · заходи в воду — поплывёшь';
+    if (mode === 'ski') h = `<b>${(ski.speed * 3.6).toFixed(0)}</b> км/ч &nbsp;·&nbsp; W газ · S тормоз · A/D руль · Shift турбо · мышь — камера · Пробел — спрыгнуть`;
+    else if (mode === 'swim') h = nearestSki() ? '<b>Пробел</b> — сесть на гидроцикл' : 'W — плыть · A/D — поворот · посмотри вниз и плыви — нырнёшь · к берегу — выйдешь на сушу';
+    else if (mode === 'walk') h = nearestSki() ? '<b>Пробел</b> — сесть на гидроцикл' : 'W — идти · A/D — поворот · Shift — бежать · Пробел — прыжок · заходи в воду — поплывёшь';
     else h = 'WASD — плыть · мышь — куда плыть · Shift быстрее · плыви вверх к свету — вынырнешь';
     return { hint: h, message: messageT > 0 ? message : '', count: `⭐ ${found()} / ${total()}` };
   }

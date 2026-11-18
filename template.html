@@ -23,6 +23,14 @@
            color: #ffe08a; background: #04121aa0; backdrop-filter: blur(6px); text-shadow: 0 0 10px #ffb300aa; pointer-events: none; }
   #count.pop { animation: pop .6s ease-out; }
   @keyframes pop { 0% { transform: scale(1.6); color: #fff; } 100% { transform: scale(1); } }
+  #skimark { position: fixed; left: 0; top: 0; pointer-events: none; z-index: 2; }
+  #skimark .b { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  #skimark .t { padding: 3px 9px; border-radius: 12px; font: 700 15px system-ui, sans-serif; color: #fff;
+                background: #e0332bd0; box-shadow: 0 0 10px #0006; white-space: nowrap; }
+  #skimark .t::before { content: 'Гидроцикл · '; font-weight: 500; }
+  #skimark .a { width: 0; height: 0; border-top: 11px solid transparent; border-bottom: 11px solid transparent;
+                border-left: 20px solid #ff5a4d; filter: drop-shadow(0 0 3px #000a); }
+  body[data-mode="under"] #skimark { display: none; }
   #fade { position: fixed; inset: 0; background: radial-gradient(#bfefff, #2a8db0); opacity: 0; transition: opacity .3s; pointer-events: none; }
   #fade.on { opacity: 1; }
   #panel { position: fixed; right: 12px; top: 10px; width: 300px; padding: 10px 12px; border-radius: 8px;
@@ -47,6 +55,7 @@
 <div id="load"><div id="p"><i id="b"></i></div><span id="s">Подводный мир загружается…</span><span id="w" hidden></span></div>
 <div id="hint"></div>
 <div id="msg"></div>
+<div id="skimark" style="display:none"><div class="b"><span class="t"></span><i class="a"></i></div></div>
 <div id="count">⭐ 0 / 0</div>
 <pre id="i"></pre>
 <div id="fade"></div>
